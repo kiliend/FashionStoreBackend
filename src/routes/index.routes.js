@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require("../config/db");
 
 const authRoutes = require("../modules/auth/auth.routes");
+const usuariosRoutes = require("../modules/usuarios/usuarios.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -26,5 +27,6 @@ router.get("/test-db", async (req, res, next) => {
 });
 
 router.use("/auth", authRoutes);
+router.use("/usuarios", usuariosRoutes);
 
 module.exports = router;
