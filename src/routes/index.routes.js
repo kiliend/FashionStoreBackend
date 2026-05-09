@@ -11,6 +11,7 @@ const productosRoutes = require("../modules/productos/productos.routes");
 const variantesRoutes = require("../modules/variantes/variantes.routes");
 const stockRoutes = require("../modules/stock/stock.routes");
 const clientesRoutes = require("../modules/clientes/clientes.routes");
+const ventasRoutes = require("../modules/ventas/ventas.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -42,5 +43,6 @@ router.use("/productos", productosRoutes);
 router.use("/variantes", variantesRoutes);
 router.use("/stock", stockRoutes);
 router.use("/clientes", clientesRoutes);
+router.use("/ventas", ventasRoutes);
 
 module.exports = router;
