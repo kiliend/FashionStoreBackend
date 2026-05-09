@@ -1,72 +1,36 @@
-const incidenciasService = require("./incidencias.service");
+const express = require("express");
+const router = express.Router();
 
-async function listarIncidencias(req, res, next) {
-  try {
-    const incidencias = await incidenciasService.listarIncidencias();
+const incidenciasController = require("./incidencias.controller");
+const { verifyToken } = require("../auth/auth.middleware");
+const { authorizeRoles } = require("../../middlewares/role.middleware");
 
-    res.json({
-      ok: true,
-      message: "Incidencias obtenidas correctamente",
-      data: incidencias
-    });
-  } catch (error) {
-    next(error);
-  }
-}
+router.get(
+  "/",
+  verifyToken,
+  authorizeRoles("admin", "vendedor"),
+  incidenciasController.listarIncidencias
+);
 
-async function obtenerIncidencia(req, res, next) {
-  try {
-    const { id } = req.params;
+router.get(
+  "/:id",
+  verifyToken,
+  authorizeRoles("admin", "vendedor"),
+  incidenciasController.obtenerIncidencia
+);
 
-    const incidencia = await incidenciasService.obtenerIncidenciaPorId(id);
+router.post(
+  "/",
+  verifyToken,
+  authorizeRoles("admin", "vendedor"),
+  incidenciasController.crearIncidencia
+);
 
-    res.json({
-      ok: true,
-      message: "Incidencia obtenida correctamente",
-      data: incidencia
-    });
-  } catch (error) {
-    next(error);
-  }
-}
+router.put(
+  "/:id/estado",
+  verifyToken,
+  authorizeRoles("admin"),
+  incidenciasController.actualizarEstadoIncidencia
+);
 
-async function crearIncidencia(req, res, next) {
-  try {
-    const incidencia = await incidenciasService.crearIncidencia(req.body, req.user);
-
-    res.status(201).json({
-      ok: true,
-      message: "Incidencia registrada correctamente",
-      data: incidencia
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
-async function actualizarEstadoIncidencia(req, res, next) {
-  try {
-    const { id } = req.params;
-
-    const incidencia = await incidenciasService.actualizarEstadoIncidencia(
-      id,
-      req.body,
-      req.user
-    );
-
-    res.json({
-      ok: true,
-      message: "Estado de incidencia actualizado correctamente",
-      data: incidencia
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
-module.exports = {
-  listarIncidencias,
-  obtenerIncidencia,
-  crearIncidencia,
-  actualizarEstadoIncidencia
-};
+module.exports = router;
