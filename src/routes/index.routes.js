@@ -19,6 +19,9 @@ const vehiculosRoutes = require("../modules/vehiculos/vehiculos.routes");
 const repartosRoutes = require("../modules/repartos/repartos.routes");
 const incidenciasRoutes = require("../modules/incidencias/incidencias.routes");
 const devolucionesRoutes = require("../modules/devoluciones/devoluciones.routes");
+const contactoRoutes = require("../modules/contacto/contacto.routes");
+const tareasRoutes = require("../modules/tareas/tareas.routes");
+
 
 router.get("/", (req, res) => {
   res.json({
@@ -57,6 +60,8 @@ router.use("/compras", comprasRoutes);
 router.use("/vehiculos", vehiculosRoutes);
 router.use("/repartos", repartosRoutes);
 router.use("/incidencias", incidenciasRoutes);
-router.use("/devoluciones", devolucionesRoutes); 
+router.use("/devoluciones", devolucionesRoutes);
+router.use("/contacto", contactoRoutes);
+router.use("/tareas", tareasRoutes); 
 
 module.exports = router;
