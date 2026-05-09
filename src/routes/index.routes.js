@@ -13,6 +13,8 @@ const stockRoutes = require("../modules/stock/stock.routes");
 const clientesRoutes = require("../modules/clientes/clientes.routes");
 const ventasRoutes = require("../modules/ventas/ventas.routes");
 const pedidosRoutes = require("../modules/pedidos/pedidos.routes");
+const proveedoresRoutes = require("../modules/proveedores/proveedores.routes");
+const comprasRoutes = require("../modules/compras/compras.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -46,5 +48,7 @@ router.use("/stock", stockRoutes);
 router.use("/clientes", clientesRoutes);
 router.use("/ventas", ventasRoutes);
 router.use("/pedidos", pedidosRoutes);
+router.use("/proveedores", proveedoresRoutes);
+router.use("/compras", comprasRoutes);
 
 module.exports = router;
