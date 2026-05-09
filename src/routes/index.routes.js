@@ -5,6 +5,8 @@ const pool = require("../config/db");
 const authRoutes = require("../modules/auth/auth.routes");
 const usuariosRoutes = require("../modules/usuarios/usuarios.routes");
 const categoriasRoutes = require("../modules/categorias/categorias.routes");
+const coloresRoutes = require("../modules/colores/colores.routes");
+const tallasRoutes = require("../modules/tallas/tallas.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -30,5 +32,7 @@ router.get("/test-db", async (req, res, next) => {
 router.use("/auth", authRoutes);
 router.use("/usuarios", usuariosRoutes);
 router.use("/categorias", categoriasRoutes);
+router.use("/colores", coloresRoutes);
+router.use("/tallas", tallasRoutes);
 
 module.exports = router;
