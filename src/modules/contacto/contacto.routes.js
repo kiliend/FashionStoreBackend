@@ -1,85 +1,146 @@
-const contactoService = require("./contacto.service");
+const tareasRepository = require("./tareas.repository");
 
-async function listarMensajes(req, res, next) {
-  try {
-    const mensajes = await contactoService.listarMensajes();
+const ESTADOS_TAREA_VALIDOS = [
+  "pendiente",
+  "en_proceso",
+  "finalizada",
+  "observada",
+  "cancelada"
+];
 
-    res.json({
-      ok: true,
-      message: "Mensajes obtenidos correctamente",
-      data: mensajes
-    });
-  } catch (error) {
-    next(error);
-  }
+async function listarTareas() {
+  return await tareasRepository.findAllTareas();
 }
 
-async function obtenerMensaje(req, res, next) {
-  try {
-    const { id } = req.params;
+async function obtenerTareaPorId(id_tarea) {
+  const tarea = await tareasRepository.findTareaById(id_tarea);
 
-    const mensaje = await contactoService.obtenerMensajePorId(id);
-
-    res.json({
-      ok: true,
-      message: "Mensaje obtenido correctamente",
-      data: mensaje
-    });
-  } catch (error) {
-    next(error);
+  if (!tarea) {
+    const error = new Error("Tarea no encontrada");
+    error.status = 404;
+    throw error;
   }
+
+  return tarea;
 }
 
-async function crearMensaje(req, res, next) {
-  try {
-    const mensaje = await contactoService.crearMensaje(req.body);
+async function crearTarea(data) {
+  validarTarea(data);
 
-    res.status(201).json({
-      ok: true,
-      message: "Mensaje registrado correctamente",
-      data: mensaje
-    });
-  } catch (error) {
-    next(error);
+  const existeUsuario = await tareasRepository.usuarioExists(data.id_usuario);
+
+  if (!existeUsuario) {
+    const error = new Error("El usuario asignado no existe o no está activo");
+    error.status = 400;
+    throw error;
   }
+
+  const nuevaTarea = {
+    id_usuario: Number(data.id_usuario),
+    modulo: data.modulo.trim(),
+    referencia_tipo: data.referencia_tipo.trim(),
+    referencia_id: Number(data.referencia_id),
+    accion: data.accion.trim(),
+    descripcion: data.descripcion ? data.descripcion.trim() : null,
+    observacion: data.observacion ? data.observacion.trim() : null
+  };
+
+  const id_tarea = await tareasRepository.createTarea(nuevaTarea);
+
+  return await tareasRepository.findTareaById(id_tarea);
 }
 
-async function actualizarEstadoMensaje(req, res, next) {
-  try {
-    const { id } = req.params;
+async function actualizarEstadoTarea(id_tarea, data) {
+  const tarea = await tareasRepository.findTareaById(id_tarea);
 
-    const mensaje = await contactoService.actualizarEstadoMensaje(id, req.body);
-
-    res.json({
-      ok: true,
-      message: "Estado del mensaje actualizado correctamente",
-      data: mensaje
-    });
-  } catch (error) {
-    next(error);
+  if (!tarea) {
+    const error = new Error("Tarea no encontrada");
+    error.status = 404;
+    throw error;
   }
+
+  if (
+    !data.estado_tarea ||
+    !ESTADOS_TAREA_VALIDOS.includes(data.estado_tarea)
+  ) {
+    const error = new Error("Estado de tarea no válido");
+    error.status = 400;
+    throw error;
+  }
+
+  const affectedRows = await tareasRepository.updateEstadoTarea(id_tarea, {
+    estado_tarea: data.estado_tarea,
+    observacion: data.observacion ? data.observacion.trim() : null
+  });
+
+  if (affectedRows === 0) {
+    const error = new Error("No se pudo actualizar la tarea");
+    error.status = 400;
+    throw error;
+  }
+
+  return await tareasRepository.findTareaById(id_tarea);
 }
 
-async function eliminarMensaje(req, res, next) {
-  try {
-    const { id } = req.params;
+async function eliminarTarea(id_tarea) {
+  const tarea = await tareasRepository.findTareaById(id_tarea);
 
-    const resultado = await contactoService.eliminarMensaje(id);
+  if (!tarea) {
+    const error = new Error("Tarea no encontrada");
+    error.status = 404;
+    throw error;
+  }
 
-    res.json({
-      ok: true,
-      message: "Mensaje eliminado lógicamente correctamente",
-      data: resultado
-    });
-  } catch (error) {
-    next(error);
+  const affectedRows = await tareasRepository.deleteTareaLogical(id_tarea);
+
+  if (affectedRows === 0) {
+    const error = new Error("No se pudo eliminar la tarea");
+    error.status = 400;
+    throw error;
+  }
+
+  return {
+    id_tarea: Number(id_tarea),
+    estado_visible: 0
+  };
+}
+
+function validarTarea(data) {
+  if (!data.id_usuario) {
+    const error = new Error("El usuario asignado es obligatorio");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!data.modulo || data.modulo.trim() === "") {
+    const error = new Error("El módulo es obligatorio");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!data.referencia_tipo || data.referencia_tipo.trim() === "") {
+    const error = new Error("El tipo de referencia es obligatorio");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!data.referencia_id || Number(data.referencia_id) <= 0) {
+    const error = new Error("El ID de referencia debe ser mayor a 0");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!data.accion || data.accion.trim() === "") {
+    const error = new Error("La acción es obligatoria");
+    error.status = 400;
+    throw error;
   }
 }
 
 module.exports = {
-  listarMensajes,
-  obtenerMensaje,
-  crearMensaje,
-  actualizarEstadoMensaje,
-  eliminarMensaje
+  listarTareas,
+  obtenerTareaPorId,
+  crearTarea,
+  actualizarEstadoTarea,
+  eliminarTarea
 };
