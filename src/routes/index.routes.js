@@ -21,7 +21,18 @@ const incidenciasRoutes = require("../modules/incidencias/incidencias.routes");
 const devolucionesRoutes = require("../modules/devoluciones/devoluciones.routes");
 const contactoRoutes = require("../modules/contacto/contacto.routes");
 const tareasRoutes = require("../modules/tareas/tareas.routes");
-
+const sunatBaseRoutes = require("../modules/sunat_base/sunat_base.routes");
+const comprobantesRoutes = require("../modules/comprobantes/comprobantes.routes");
+const sunatXmlRoutes = require("../modules/sunat_xml/sunat_xml.routes");
+const sunatZipRoutes = require("../modules/sunat_zip/sunat_zip.routes");
+const sunatFirmaRoutes = require("../modules/sunat_firma/sunat_firma.routes");
+const sunatEnvioRoutes = require("../modules/sunat_envio/sunat_envio.routes");
+const sunatCdrRoutes = require("../modules/sunat_cdr/sunat_cdr.routes");
+const promocionesRoutes = require("../modules/promociones/promociones.routes");
+const combosRoutes = require("../modules/combos/combos.routes");
+const descuentosRoutes = require("../modules/descuentos/descuentos.routes");
+const dashboardRoutes = require("../modules/dashboard/dashboard.routes");
+const reportesRoutes = require("../modules/reportes/reportes.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -62,6 +73,19 @@ router.use("/repartos", repartosRoutes);
 router.use("/incidencias", incidenciasRoutes);
 router.use("/devoluciones", devolucionesRoutes);
 router.use("/contacto", contactoRoutes);
-router.use("/tareas", tareasRoutes); 
+router.use("/tareas", tareasRoutes);
+router.use("/sunat", sunatBaseRoutes);
+router.use("/comprobantes", comprobantesRoutes);
+router.use("/sunat", sunatXmlRoutes); 
+router.use("/sunat", sunatZipRoutes);
+router.use("/sunat", sunatFirmaRoutes);
+router.use("/sunat", sunatEnvioRoutes);
+router.use("/sunat", sunatCdrRoutes);
+router.use("/promociones", promocionesRoutes);
+router.use("/combos", combosRoutes);
+router.use("/descuentos", descuentosRoutes);
+router.use("/dashboard", dashboardRoutes);
+router.use("/reportes", reportesRoutes);
+
 
 module.exports = router;
