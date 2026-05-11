@@ -28,6 +28,9 @@ const sunatZipRoutes = require("../modules/sunat_zip/sunat_zip.routes");
 const sunatFirmaRoutes = require("../modules/sunat_firma/sunat_firma.routes");
 const sunatEnvioRoutes = require("../modules/sunat_envio/sunat_envio.routes");
 const sunatCdrRoutes = require("../modules/sunat_cdr/sunat_cdr.routes");
+const promocionesRoutes = require("../modules/promociones/promociones.routes");
+const combosRoutes = require("../modules/combos/combos.routes");
+const descuentosRoutes = require("../modules/descuentos/descuentos.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -76,6 +79,9 @@ router.use("/sunat", sunatZipRoutes);
 router.use("/sunat", sunatFirmaRoutes);
 router.use("/sunat", sunatEnvioRoutes);
 router.use("/sunat", sunatCdrRoutes);
+router.use("/promociones", promocionesRoutes);
+router.use("/combos", combosRoutes);
+router.use("/descuentos", descuentosRoutes);
 
 
 module.exports = router;
