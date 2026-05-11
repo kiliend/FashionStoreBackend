@@ -31,6 +31,8 @@ const sunatCdrRoutes = require("../modules/sunat_cdr/sunat_cdr.routes");
 const promocionesRoutes = require("../modules/promociones/promociones.routes");
 const combosRoutes = require("../modules/combos/combos.routes");
 const descuentosRoutes = require("../modules/descuentos/descuentos.routes");
+const dashboardRoutes = require("../modules/dashboard/dashboard.routes");
+const reportesRoutes = require("../modules/reportes/reportes.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -82,6 +84,8 @@ router.use("/sunat", sunatCdrRoutes);
 router.use("/promociones", promocionesRoutes);
 router.use("/combos", combosRoutes);
 router.use("/descuentos", descuentosRoutes);
+router.use("/dashboard", dashboardRoutes);
+router.use("/reportes", reportesRoutes);
 
 
 module.exports = router;
