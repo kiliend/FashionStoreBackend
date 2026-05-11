@@ -24,6 +24,7 @@ const tareasRoutes = require("../modules/tareas/tareas.routes");
 const sunatBaseRoutes = require("../modules/sunat_base/sunat_base.routes");
 const comprobantesRoutes = require("../modules/comprobantes/comprobantes.routes");
 const sunatXmlRoutes = require("../modules/sunat_xml/sunat_xml.routes");
+const sunatZipRoutes = require("../modules/sunat_zip/sunat_zip.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -68,5 +69,7 @@ router.use("/tareas", tareasRoutes);
 router.use("/sunat", sunatBaseRoutes);
 router.use("/comprobantes", comprobantesRoutes);
 router.use("/sunat", sunatXmlRoutes); 
+router.use("/sunat", sunatZipRoutes);
+
 
 module.exports = router;
