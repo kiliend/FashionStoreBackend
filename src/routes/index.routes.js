@@ -22,6 +22,7 @@ const devolucionesRoutes = require("../modules/devoluciones/devoluciones.routes"
 const contactoRoutes = require("../modules/contacto/contacto.routes");
 const tareasRoutes = require("../modules/tareas/tareas.routes");
 const sunatBaseRoutes = require("../modules/sunat_base/sunat_base.routes");
+const comprobantesRoutes = require("../modules/comprobantes/comprobantes.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -63,6 +64,7 @@ router.use("/incidencias", incidenciasRoutes);
 router.use("/devoluciones", devolucionesRoutes);
 router.use("/contacto", contactoRoutes);
 router.use("/tareas", tareasRoutes);
-router.use("/sunat", sunatBaseRoutes); 
+router.use("/sunat", sunatBaseRoutes);
+router.use("/comprobantes", comprobantesRoutes); 
 
 module.exports = router;
