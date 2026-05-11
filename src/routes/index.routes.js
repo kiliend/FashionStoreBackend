@@ -26,6 +26,7 @@ const comprobantesRoutes = require("../modules/comprobantes/comprobantes.routes"
 const sunatXmlRoutes = require("../modules/sunat_xml/sunat_xml.routes");
 const sunatZipRoutes = require("../modules/sunat_zip/sunat_zip.routes");
 const sunatFirmaRoutes = require("../modules/sunat_firma/sunat_firma.routes");
+const sunatEnvioRoutes = require("../modules/sunat_envio/sunat_envio.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -72,6 +73,7 @@ router.use("/comprobantes", comprobantesRoutes);
 router.use("/sunat", sunatXmlRoutes); 
 router.use("/sunat", sunatZipRoutes);
 router.use("/sunat", sunatFirmaRoutes);
+router.use("/sunat", sunatEnvioRoutes);
 
 
 module.exports = router;
