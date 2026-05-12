@@ -265,6 +265,137 @@ async function crearVentaConDetalles(data) {
   }
 }
 
+async function findVentaPendienteById(id_venta, connection = pool) {
+  const sql = `
+    SELECT 
+      id_venta,
+      estado_venta,
+      estado_visible
+    FROM ventas
+    WHERE id_venta = ?
+    AND estado_visible = 1
+    LIMIT 1
+  `;
+
+  const [rows] = await connection.query(sql, [id_venta]);
+  return rows[0];
+}
+
+async function findDetalleVenta(id_venta, connection = pool) {
+  const sql = `
+    SELECT
+      id_detalle_venta,
+      id_variante,
+      cantidad
+    FROM detalle_ventas
+    WHERE id_venta = ?
+    AND estado_visible = 1
+  `;
+
+  const [rows] = await connection.query(sql, [id_venta]);
+  return rows;
+}
+
+async function completarVenta(id_venta) {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const venta = await findVentaPendienteById(id_venta, connection);
+
+    if (!venta) {
+      const error = new Error("Venta no encontrada");
+      error.status = 404;
+      throw error;
+    }
+
+    if (venta.estado_venta === "completada") {
+      const error = new Error("La venta ya se encuentra completada");
+      error.status = 400;
+      throw error;
+    }
+
+    if (venta.estado_venta === "anulada") {
+      const error = new Error("No se puede completar una venta anulada");
+      error.status = 400;
+      throw error;
+    }
+
+    const detalles = await findDetalleVenta(id_venta, connection);
+
+    if (detalles.length === 0) {
+      const error = new Error("La venta no tiene detalle de productos");
+      error.status = 400;
+      throw error;
+    }
+
+    for (const item of detalles) {
+      const [varianteRows] = await connection.query(
+        `
+        SELECT 
+          id_variante,
+          stock_actual
+        FROM producto_variantes
+        WHERE id_variante = ?
+        AND estado_visible = 1
+        AND estado_variante = 'activo'
+        LIMIT 1
+        FOR UPDATE
+        `,
+        [item.id_variante]
+      );
+
+      if (varianteRows.length === 0) {
+        const error = new Error(`La variante ${item.id_variante} no existe o está inactiva`);
+        error.status = 400;
+        throw error;
+      }
+
+      const variante = varianteRows[0];
+
+      if (Number(variante.stock_actual) < Number(item.cantidad)) {
+        const error = new Error(
+          `Stock insuficiente para la variante ${item.id_variante}`
+        );
+        error.status = 400;
+        throw error;
+      }
+
+      await connection.query(
+        `
+        UPDATE producto_variantes
+        SET stock_actual = stock_actual - ?
+        WHERE id_variante = ?
+        `,
+        [item.cantidad, item.id_variante]
+      );
+    }
+
+    await connection.query(
+      `
+      UPDATE ventas
+      SET estado_venta = 'completada'
+      WHERE id_venta = ?
+      AND estado_visible = 1
+      `,
+      [id_venta]
+    );
+
+    await connection.commit();
+
+    return {
+      id_venta: Number(id_venta),
+      estado_venta: "completada"
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 async function anularVenta(id_venta, data) {
   const connection = await pool.getConnection();
 
@@ -386,5 +517,6 @@ module.exports = {
   findAllVentas,
   findVentaById,
   crearVentaConDetalles,
-  anularVenta
+  anularVenta,
+  completarVenta
 };

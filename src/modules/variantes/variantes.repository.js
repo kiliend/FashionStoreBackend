@@ -6,6 +6,7 @@ async function findAllVariantes() {
       pv.id_variante,
       pv.id_producto,
       p.nombre_producto,
+      p.precio_venta,      
       pv.id_color,
       c.nombre_color,
       c.codigo_hex,

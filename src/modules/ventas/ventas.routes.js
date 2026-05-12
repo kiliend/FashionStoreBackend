@@ -33,4 +33,11 @@ router.put(
   ventasController.anularVenta
 );
 
+router.put(
+  "/:id/completar",
+  verifyToken,
+  authorizeRoles("admin", "vendedor"),
+  ventasController.completarVenta
+);
+
 module.exports = router;
