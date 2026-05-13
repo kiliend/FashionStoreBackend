@@ -129,5 +129,6 @@ module.exports = {
   listarVentas,
   obtenerVentaPorId,
   crearVenta,
-  anularVenta
+  anularVenta,
+  completarVenta
 };
