@@ -33,6 +33,7 @@ const combosRoutes = require("../modules/combos/combos.routes");
 const descuentosRoutes = require("../modules/descuentos/descuentos.routes");
 const dashboardRoutes = require("../modules/dashboard/dashboard.routes");
 const reportesRoutes = require("../modules/reportes/reportes.routes");
+const uploadsRoutes = require("../modules/uploads/uploads.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -86,6 +87,7 @@ router.use("/combos", combosRoutes);
 router.use("/descuentos", descuentosRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/reportes", reportesRoutes);
+router.use("/uploads", uploadsRoutes);
 
 
 module.exports = router;

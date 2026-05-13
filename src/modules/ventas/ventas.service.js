@@ -68,6 +68,11 @@ async function anularVenta(id_venta, data, usuarioAutenticado) {
   return await ventasRepository.findVentaById(ventaAnuladaId);
 }
 
+async function completarVenta(id_venta) {
+  const resultado = await ventasRepository.completarVenta(id_venta);
+  return resultado;
+}
+
 function validarVenta(data) {
   if (!data.origen_venta || !ORIGENES_VALIDOS.includes(data.origen_venta)) {
     const error = new Error("El origen de venta debe ser presencial o ecommerce");
@@ -124,5 +129,6 @@ module.exports = {
   listarVentas,
   obtenerVentaPorId,
   crearVenta,
-  anularVenta
+  anularVenta,
+  completarVenta
 };

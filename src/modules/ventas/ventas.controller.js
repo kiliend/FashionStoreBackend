@@ -60,9 +60,26 @@ async function anularVenta(req, res, next) {
   }
 }
 
+async function completarVenta(req, res, next) {
+  try {
+    const { id } = req.params;
+
+    const resultado = await ventasService.completarVenta(id);
+
+    res.json({
+      ok: true,
+      message: "Venta completada correctamente",
+      data: resultado
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   listarVentas,
   obtenerVenta,
   crearVenta,
-  anularVenta
+  anularVenta,
+  completarVenta
 };
