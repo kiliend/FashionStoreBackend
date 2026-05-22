@@ -3,16 +3,18 @@ const pool = require("../../config/db");
 async function findAllCombos() {
   const sql = `
     SELECT
-      id_combo,
-      nombre_combo,
-      descripcion,
-      precio_combo,
-      fecha_inicio,
-      fecha_fin,
-      estado_combo
-    FROM combos
-    WHERE estado_visible = 1
-    ORDER BY id_combo DESC
+      c.id_combo,
+      c.id_promocion,
+      c.nombre_combo,
+      c.descripcion,
+      c.precio_combo,
+      c.precio_normal,
+      c.fecha_inicio,
+      c.fecha_fin,
+      c.estado_combo
+    FROM combos c
+    WHERE c.estado_visible = 1
+    ORDER BY c.id_combo DESC
   `;
 
   const [rows] = await pool.query(sql);
@@ -22,16 +24,18 @@ async function findAllCombos() {
 async function findComboById(id_combo) {
   const comboSql = `
     SELECT
-      id_combo,
-      nombre_combo,
-      descripcion,
-      precio_combo,
-      fecha_inicio,
-      fecha_fin,
-      estado_combo
-    FROM combos
-    WHERE id_combo = ?
-    AND estado_visible = 1
+      c.id_combo,
+      c.id_promocion,
+      c.nombre_combo,
+      c.descripcion,
+      c.precio_combo,
+      c.precio_normal,
+      c.fecha_inicio,
+      c.fecha_fin,
+      c.estado_combo
+    FROM combos c
+    WHERE c.id_combo = ?
+    AND c.estado_visible = 1
     LIMIT 1
   `;
 
@@ -79,22 +83,26 @@ async function createCombo(data) {
       `
       INSERT INTO combos
       (
+        id_promocion,
         nombre_combo,
         descripcion,
         precio_combo,
+        precio_normal,
         fecha_inicio,
         fecha_fin,
         estado_combo,
         estado_visible
       )
-      VALUES (?, ?, ?, ?, ?, ?, 1)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
       `,
       [
+        data.id_promocion || null,
         data.nombre_combo,
-        data.descripcion,
+        data.descripcion || null,
         data.precio_combo,
-        data.fecha_inicio,
-        data.fecha_fin,
+        data.precio_normal || null,
+        data.fecha_inicio || null,
+        data.fecha_fin || null,
         data.estado_combo || "activo"
       ]
     );
@@ -143,9 +151,11 @@ async function updateCombo(id_combo, data) {
       `
       UPDATE combos
       SET
+        id_promocion = ?,
         nombre_combo = ?,
         descripcion = ?,
         precio_combo = ?,
+        precio_normal = ?,
         fecha_inicio = ?,
         fecha_fin = ?,
         estado_combo = ?
@@ -153,12 +163,14 @@ async function updateCombo(id_combo, data) {
       AND estado_visible = 1
       `,
       [
+        data.id_promocion || null,
         data.nombre_combo,
-        data.descripcion,
+        data.descripcion || null,
         data.precio_combo,
-        data.fecha_inicio,
-        data.fecha_fin,
-        data.estado_combo,
+        data.precio_normal || null,
+        data.fecha_inicio || null,
+        data.fecha_fin || null,
+        data.estado_combo || "activo",
         id_combo
       ]
     );

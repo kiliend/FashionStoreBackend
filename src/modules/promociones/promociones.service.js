@@ -1,13 +1,19 @@
 const promocionesRepository = require("./promociones.repository");
 
 const TIPOS_PROMOCION_VALIDOS = [
+  "descuento_producto",
+  "combo"
+];
+
+const TIPOS_DESCUENTO_VALIDOS = [
   "porcentaje",
   "monto_fijo"
 ];
 
 const ESTADOS_PROMOCION_VALIDOS = [
-  "activo",
-  "inactivo"
+  "activa",
+  "inactiva",
+  "vencida"
 ];
 
 async function listarPromociones() {
@@ -91,8 +97,24 @@ async function validarPromocion(data) {
     throw error;
   }
 
-  if (!data.tipo_promocion || !TIPOS_PROMOCION_VALIDOS.includes(data.tipo_promocion)) {
-    const error = new Error("El tipo de promoción debe ser porcentaje o monto_fijo");
+  if (
+    !data.tipo_promocion ||
+    !TIPOS_PROMOCION_VALIDOS.includes(data.tipo_promocion)
+  ) {
+    const error = new Error(
+      "El tipo de promoción debe ser descuento_producto o combo"
+    );
+    error.status = 400;
+    throw error;
+  }
+
+  if (
+    !data.tipo_descuento ||
+    !TIPOS_DESCUENTO_VALIDOS.includes(data.tipo_descuento)
+  ) {
+    const error = new Error(
+      "El tipo de descuento debe ser porcentaje o monto_fijo"
+    );
     error.status = 400;
     throw error;
   }
@@ -103,7 +125,10 @@ async function validarPromocion(data) {
     throw error;
   }
 
-  if (data.tipo_promocion === "porcentaje" && Number(data.valor_descuento) > 100) {
+  if (
+    data.tipo_descuento === "porcentaje" &&
+    Number(data.valor_descuento) > 100
+  ) {
     const error = new Error("El porcentaje de descuento no puede superar el 100%");
     error.status = 400;
     throw error;
@@ -125,7 +150,9 @@ async function validarPromocion(data) {
     data.estado_promocion &&
     !ESTADOS_PROMOCION_VALIDOS.includes(data.estado_promocion)
   ) {
-    const error = new Error("El estado de promoción debe ser activo o inactivo");
+    const error = new Error(
+      "El estado de promoción debe ser activa, inactiva o vencida"
+    );
     error.status = 400;
     throw error;
   }
@@ -144,7 +171,9 @@ async function validarPromocion(data) {
     }
 
     if (item.id_producto) {
-      const existeProducto = await promocionesRepository.productoExists(item.id_producto);
+      const existeProducto = await promocionesRepository.productoExists(
+        item.id_producto
+      );
 
       if (!existeProducto) {
         const error = new Error(`El producto ${item.id_producto} no existe`);
@@ -154,7 +183,9 @@ async function validarPromocion(data) {
     }
 
     if (item.id_variante) {
-      const existeVariante = await promocionesRepository.varianteExists(item.id_variante);
+      const existeVariante = await promocionesRepository.varianteExists(
+        item.id_variante
+      );
 
       if (!existeVariante) {
         const error = new Error(`La variante ${item.id_variante} no existe`);
@@ -170,10 +201,11 @@ function prepararDatosPromocion(data) {
     nombre_promocion: data.nombre_promocion.trim(),
     descripcion: data.descripcion ? data.descripcion.trim() : null,
     tipo_promocion: data.tipo_promocion,
+    tipo_descuento: data.tipo_descuento,
     valor_descuento: Number(data.valor_descuento),
     fecha_inicio: data.fecha_inicio,
     fecha_fin: data.fecha_fin,
-    estado_promocion: data.estado_promocion || "activo",
+    estado_promocion: data.estado_promocion || "activa",
     detalles: data.detalles.map((item) => ({
       id_producto: item.id_producto ? Number(item.id_producto) : null,
       id_variante: item.id_variante ? Number(item.id_variante) : null,

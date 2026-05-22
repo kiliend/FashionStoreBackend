@@ -55,23 +55,24 @@ async function findOrdenCompraById(id_orden_compra) {
 
   const detalleSql = `
     SELECT
-      doc.id_detalle_orden,
-      doc.id_variante,
-      pr.nombre_producto,
-      co.nombre_color,
-      ta.nombre_talla,
+      cd.id_combo_detalle,
+      cd.id_combo,
+      cd.id_producto,
+      cd.id_variante,
+      p.nombre_producto,
       pv.sku,
-      doc.descripcion_producto,
-      doc.cantidad,
-      doc.costo_unitario,
-      doc.subtotal
-    FROM detalle_orden_compra doc
-    LEFT JOIN producto_variantes pv ON doc.id_variante = pv.id_variante
-    LEFT JOIN productos pr ON pv.id_producto = pr.id_producto
-    LEFT JOIN colores co ON pv.id_color = co.id_color
-    LEFT JOIN tallas ta ON pv.id_talla = ta.id_talla
-    WHERE doc.id_orden_compra = ?
-    AND doc.estado_visible = 1
+      c.nombre_color,
+      t.nombre_talla,
+      cd.cantidad,
+      cd.precio_referencial,
+      cd.estado_visible
+    FROM combo_detalle cd
+    LEFT JOIN producto_variantes pv ON cd.id_variante = pv.id_variante
+    LEFT JOIN productos p ON pv.id_producto = p.id_producto
+    LEFT JOIN colores c ON pv.id_color = c.id_color
+    LEFT JOIN tallas t ON pv.id_talla = t.id_talla
+    WHERE cd.id_combo = ?
+    AND cd.estado_visible = 1
   `;
 
   const [ordenRows] = await pool.query(ordenSql, [id_orden_compra]);

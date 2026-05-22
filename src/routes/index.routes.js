@@ -34,6 +34,7 @@ const descuentosRoutes = require("../modules/descuentos/descuentos.routes");
 const dashboardRoutes = require("../modules/dashboard/dashboard.routes");
 const reportesRoutes = require("../modules/reportes/reportes.routes");
 const uploadsRoutes = require("../modules/uploads/uploads.routes");
+const ecommerceRoutes = require("../modules/ecommerce/ecommerce.routes");
 
 router.get("/", (req, res) => {
   res.json({
@@ -75,7 +76,7 @@ router.use("/incidencias", incidenciasRoutes);
 router.use("/devoluciones", devolucionesRoutes);
 router.use("/contacto", contactoRoutes);
 router.use("/tareas", tareasRoutes);
-router.use("/sunat", sunatBaseRoutes);
+router.use("/sunat-base", sunatBaseRoutes);
 router.use("/comprobantes", comprobantesRoutes);
 router.use("/sunat", sunatXmlRoutes); 
 router.use("/sunat", sunatZipRoutes);
@@ -88,6 +89,7 @@ router.use("/descuentos", descuentosRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/reportes", reportesRoutes);
 router.use("/uploads", uploadsRoutes);
+router.use("/ecommerce", ecommerceRoutes);
 
 
 module.exports = router;

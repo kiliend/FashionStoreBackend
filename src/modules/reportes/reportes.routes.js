@@ -6,6 +6,13 @@ const { verifyToken } = require("../auth/auth.middleware");
 const { authorizeRoles } = require("../../middlewares/role.middleware");
 
 router.get(
+  "/resumen-gerencial",
+  verifyToken,
+  authorizeRoles("admin"),
+  reportesController.resumenGerencial
+);
+
+router.get(
   "/ventas",
   verifyToken,
   authorizeRoles("admin"),
