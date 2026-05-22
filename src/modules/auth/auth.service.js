@@ -26,30 +26,32 @@ async function login(usuario, password) {
     throw error;
   }
 
+  const rolUsuario = String(user.nombre_rol || "").trim().toLowerCase();
+
   const payload = {
     id_usuario: user.id_usuario,
+    id_rol: user.id_rol,
     usuario: user.usuario,
-    rol: user.nombre_rol
+    rol: rolUsuario,
+    nombre_rol: rolUsuario
   };
 
-  const token = jwt.sign(
-    payload,
-    process.env.JWT_SECRET,
-    {
-      expiresIn: process.env.JWT_EXPIRES || "2h"
-    }
-  );
+  const token = jwt.sign(payload, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES || "2h"
+  });
 
   return {
     token,
     usuario: {
       id_usuario: user.id_usuario,
+      id_rol: user.id_rol,
       nombres: user.nombres,
       apellidos: user.apellidos,
       usuario: user.usuario,
       correo: user.correo,
       telefono: user.telefono,
-      rol: user.nombre_rol
+      rol: rolUsuario,
+      nombre_rol: rolUsuario
     }
   };
 }

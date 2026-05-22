@@ -6,7 +6,9 @@ async function findAllVariantes() {
       pv.id_variante,
       pv.id_producto,
       p.nombre_producto,
-      p.precio_venta,      
+      p.precio_venta,
+      p.imagen_url,
+      p.estado_producto,
       pv.id_color,
       c.nombre_color,
       c.codigo_hex,
@@ -22,9 +24,9 @@ async function findAllVariantes() {
         ELSE 'stock_correcto'
       END AS alerta_stock
     FROM producto_variantes pv
-    INNER JOIN productos p ON pv.id_producto = p.id_producto
-    INNER JOIN colores c ON pv.id_color = c.id_color
-    INNER JOIN tallas t ON pv.id_talla = t.id_talla
+    LEFT JOIN productos p ON pv.id_producto = p.id_producto
+    LEFT JOIN colores c ON pv.id_color = c.id_color
+    LEFT JOIN tallas t ON pv.id_talla = t.id_talla
     WHERE pv.estado_visible = 1
     ORDER BY pv.id_variante DESC
   `;
@@ -39,6 +41,9 @@ async function findVarianteById(id_variante) {
       pv.id_variante,
       pv.id_producto,
       p.nombre_producto,
+      p.precio_venta,
+      p.imagen_url,
+      p.estado_producto,
       pv.id_color,
       c.nombre_color,
       c.codigo_hex,
@@ -54,9 +59,9 @@ async function findVarianteById(id_variante) {
         ELSE 'stock_correcto'
       END AS alerta_stock
     FROM producto_variantes pv
-    INNER JOIN productos p ON pv.id_producto = p.id_producto
-    INNER JOIN colores c ON pv.id_color = c.id_color
-    INNER JOIN tallas t ON pv.id_talla = t.id_talla
+    LEFT JOIN productos p ON pv.id_producto = p.id_producto
+    LEFT JOIN colores c ON pv.id_color = c.id_color
+    LEFT JOIN tallas t ON pv.id_talla = t.id_talla
     WHERE pv.id_variante = ?
     AND pv.estado_visible = 1
     LIMIT 1

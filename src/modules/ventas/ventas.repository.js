@@ -71,8 +71,14 @@ async function findVentaById(id_venta) {
   const detalleSql = `
     SELECT
       dv.id_detalle_venta,
+      dv.tipo_item,
       dv.id_variante,
+      dv.id_promocion,
+      dv.id_combo,
+      dv.descripcion_item,
+      COALESCE(dv.descripcion_item, p.nombre_producto, cb.nombre_combo) AS nombre_item,
       p.nombre_producto,
+      cb.nombre_combo,
       co.nombre_color,
       t.nombre_talla,
       pv.sku,
@@ -81,10 +87,11 @@ async function findVentaById(id_venta) {
       dv.descuento,
       dv.subtotal
     FROM detalle_ventas dv
-    INNER JOIN producto_variantes pv ON dv.id_variante = pv.id_variante
-    INNER JOIN productos p ON pv.id_producto = p.id_producto
-    INNER JOIN colores co ON pv.id_color = co.id_color
-    INNER JOIN tallas t ON pv.id_talla = t.id_talla
+    LEFT JOIN producto_variantes pv ON dv.id_variante = pv.id_variante
+    LEFT JOIN productos p ON pv.id_producto = p.id_producto
+    LEFT JOIN colores co ON pv.id_color = co.id_color
+    LEFT JOIN tallas t ON pv.id_talla = t.id_talla
+    LEFT JOIN combos cb ON dv.id_combo = cb.id_combo
     WHERE dv.id_venta = ?
     AND dv.estado_visible = 1
   `;
@@ -101,6 +108,171 @@ async function findVentaById(id_venta) {
     ...ventaRows[0],
     detalles: detalleRows
   };
+}
+
+async function descontarStockVariante(connection, id_variante, cantidad, idVenta) {
+  const [varianteRows] = await connection.query(
+    `
+    SELECT id_variante, stock_actual
+    FROM producto_variantes
+    WHERE id_variante = ?
+    AND estado_visible = 1
+    AND estado_variante = 'activo'
+    FOR UPDATE
+    `,
+    [id_variante]
+  );
+
+  if (varianteRows.length === 0) {
+    const error = new Error(`La variante ${id_variante} no existe o está inactiva`);
+    error.status = 400;
+    throw error;
+  }
+
+  const stockActual = Number(varianteRows[0].stock_actual);
+
+  if (stockActual < Number(cantidad)) {
+    const error = new Error(
+      `Stock insuficiente para la variante ${id_variante}. Stock actual: ${stockActual}`
+    );
+    error.status = 400;
+    throw error;
+  }
+
+  await connection.query(
+    `
+    UPDATE producto_variantes
+    SET stock_actual = stock_actual - ?
+    WHERE id_variante = ?
+    `,
+    [cantidad, id_variante]
+  );
+
+  await connection.query(
+    `
+    INSERT INTO movimientos_stock
+    (
+      id_variante,
+      tipo_movimiento,
+      cantidad,
+      motivo,
+      referencia_tipo,
+      referencia_id,
+      estado_visible
+    )
+    VALUES (?, 'salida', ?, ?, 'venta', ?, 1)
+    `,
+    [
+      id_variante,
+      cantidad,
+      `Salida por venta #${idVenta}`,
+      idVenta
+    ]
+  );
+}
+
+async function reponerStockVariante(connection, id_variante, cantidad, idVenta) {
+  const [varianteRows] = await connection.query(
+    `
+    SELECT id_variante, stock_actual
+    FROM producto_variantes
+    WHERE id_variante = ?
+    AND estado_visible = 1
+    FOR UPDATE
+    `,
+    [id_variante]
+  );
+
+  if (varianteRows.length === 0) {
+    const error = new Error(`La variante ${id_variante} no existe`);
+    error.status = 400;
+    throw error;
+  }
+
+  await connection.query(
+    `
+    UPDATE producto_variantes
+    SET stock_actual = stock_actual + ?
+    WHERE id_variante = ?
+    `,
+    [cantidad, id_variante]
+  );
+
+  await connection.query(
+    `
+    INSERT INTO movimientos_stock
+    (
+      id_variante,
+      tipo_movimiento,
+      cantidad,
+      motivo,
+      referencia_tipo,
+      referencia_id,
+      estado_visible
+    )
+    VALUES (?, 'devolucion', ?, ?, 'anulacion_venta', ?, 1)
+    `,
+    [
+      id_variante,
+      cantidad,
+      `Devolución de stock por anulación de venta #${idVenta}`,
+      idVenta
+    ]
+  );
+}
+
+async function obtenerDetallesCombo(connection, id_combo) {
+  const [detallesCombo] = await connection.query(
+    `
+    SELECT
+      id_combo_detalle,
+      id_combo,
+      id_variante,
+      cantidad
+    FROM combo_detalle
+    WHERE id_combo = ?
+    AND estado_visible = 1
+    `,
+    [id_combo]
+  );
+
+  if (detallesCombo.length === 0) {
+    const error = new Error(`El combo ${id_combo} no tiene productos configurados`);
+    error.status = 400;
+    throw error;
+  }
+
+  return detallesCombo;
+}
+
+async function descontarStockCombo(connection, id_combo, cantidadCombo, idVenta) {
+  const detallesCombo = await obtenerDetallesCombo(connection, id_combo);
+
+  for (const item of detallesCombo) {
+    const cantidadADescontar = Number(item.cantidad) * Number(cantidadCombo);
+
+    await descontarStockVariante(
+      connection,
+      item.id_variante,
+      cantidadADescontar,
+      idVenta
+    );
+  }
+}
+
+async function reponerStockCombo(connection, id_combo, cantidadCombo, idVenta) {
+  const detallesCombo = await obtenerDetallesCombo(connection, id_combo);
+
+  for (const item of detallesCombo) {
+    const cantidadAReponer = Number(item.cantidad) * Number(cantidadCombo);
+
+    await reponerStockVariante(
+      connection,
+      item.id_variante,
+      cantidadAReponer,
+      idVenta
+    );
+  }
 }
 
 async function crearVentaConDetalles(data) {
@@ -158,59 +330,37 @@ async function crearVentaConDetalles(data) {
     const idVenta = ventaResult.insertId;
 
     for (const item of data.detalles) {
-      const idVariante = Number(item.id_variante);
+      const tipoItem = item.tipo_item || "producto";
       const cantidad = Number(item.cantidad);
       const precioUnitario = Number(item.precio_unitario);
       const descuento = Number(item.descuento || 0);
       const subtotalDetalle = Number(((cantidad * precioUnitario) - descuento).toFixed(2));
-
-      const [varianteRows] = await connection.query(
-        `
-        SELECT id_variante, stock_actual
-        FROM producto_variantes
-        WHERE id_variante = ?
-        AND estado_visible = 1
-        AND estado_variante = 'activo'
-        FOR UPDATE
-        `,
-        [idVariante]
-      );
-
-      if (varianteRows.length === 0) {
-        const error = new Error(`La variante ${idVariante} no existe o está inactiva`);
-        error.status = 400;
-        throw error;
-      }
-
-      const stockActual = Number(varianteRows[0].stock_actual);
-
-      if (data.estado_venta !== "pendiente" && stockActual < cantidad) {
-        const error = new Error(`Stock insuficiente para la variante ${idVariante}. Stock actual: ${stockActual}`);
-        error.status = 400;
-        throw error;
-      }
 
       await connection.query(
         `
         INSERT INTO detalle_ventas
         (
           id_venta,
+          tipo_item,
           id_variante,
           id_promocion,
           id_combo,
+          descripcion_item,
           cantidad,
           precio_unitario,
           descuento,
           subtotal,
           estado_visible
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         `,
         [
           idVenta,
-          idVariante,
+          tipoItem,
+          item.id_variante || null,
           item.id_promocion || null,
           item.id_combo || null,
+          item.descripcion_item || null,
           cantidad,
           precioUnitario,
           descuento,
@@ -219,38 +369,11 @@ async function crearVentaConDetalles(data) {
       );
 
       if (data.estado_venta !== "pendiente") {
-        const nuevoStock = stockActual - cantidad;
-
-        await connection.query(
-          `
-          UPDATE producto_variantes
-          SET stock_actual = ?
-          WHERE id_variante = ?
-          `,
-          [nuevoStock, idVariante]
-        );
-
-        await connection.query(
-          `
-          INSERT INTO movimientos_stock
-          (
-            id_variante,
-            tipo_movimiento,
-            cantidad,
-            motivo,
-            referencia_tipo,
-            referencia_id,
-            estado_visible
-          )
-          VALUES (?, 'salida', ?, ?, 'venta', ?, 1)
-          `,
-          [
-            idVariante,
-            cantidad,
-            `Salida por venta #${idVenta}`,
-            idVenta
-          ]
-        );
+        if (tipoItem === "combo") {
+          await descontarStockCombo(connection, item.id_combo, cantidad, idVenta);
+        } else {
+          await descontarStockVariante(connection, item.id_variante, cantidad, idVenta);
+        }
       }
     }
 
@@ -285,7 +408,9 @@ async function findDetalleVenta(id_venta, connection = pool) {
   const sql = `
     SELECT
       id_detalle_venta,
+      tipo_item,
       id_variante,
+      id_combo,
       cantidad
     FROM detalle_ventas
     WHERE id_venta = ?
@@ -331,51 +456,21 @@ async function completarVenta(id_venta) {
     }
 
     for (const item of detalles) {
-      const [varianteRows] = await connection.query(
-        `
-        SELECT 
-          id_variante,
-          stock_actual
-        FROM producto_variantes
-        WHERE id_variante = ?
-        AND estado_visible = 1
-        AND estado_variante = 'activo'
-        LIMIT 1
-        FOR UPDATE
-        `,
-        [item.id_variante]
-      );
+      const tipoItem = item.tipo_item || "producto";
 
-      if (varianteRows.length === 0) {
-        const error = new Error(`La variante ${item.id_variante} no existe o está inactiva`);
-        error.status = 400;
-        throw error;
+      if (tipoItem === "combo") {
+        await descontarStockCombo(connection, item.id_combo, item.cantidad, id_venta);
+      } else {
+        await descontarStockVariante(connection, item.id_variante, item.cantidad, id_venta);
       }
-
-      const variante = varianteRows[0];
-
-      if (Number(variante.stock_actual) < Number(item.cantidad)) {
-        const error = new Error(
-          `Stock insuficiente para la variante ${item.id_variante}`
-        );
-        error.status = 400;
-        throw error;
-      }
-
-      await connection.query(
-        `
-        UPDATE producto_variantes
-        SET stock_actual = stock_actual - ?
-        WHERE id_variante = ?
-        `,
-        [item.cantidad, item.id_variante]
-      );
     }
 
     await connection.query(
       `
       UPDATE ventas
-      SET estado_venta = 'completada'
+      SET 
+        estado_venta = 'completada',
+        fecha_completada = NOW()
       WHERE id_venta = ?
       AND estado_visible = 1
       `,
@@ -429,7 +524,11 @@ async function anularVenta(id_venta, data) {
 
     const [detalles] = await connection.query(
       `
-      SELECT id_variante, cantidad
+      SELECT
+        tipo_item,
+        id_variante,
+        id_combo,
+        cantidad
       FROM detalle_ventas
       WHERE id_venta = ?
       AND estado_visible = 1
@@ -439,49 +538,13 @@ async function anularVenta(id_venta, data) {
 
     if (estadoAnterior === "completada") {
       for (const item of detalles) {
-        const [varianteRows] = await connection.query(
-          `
-          SELECT stock_actual
-          FROM producto_variantes
-          WHERE id_variante = ?
-          FOR UPDATE
-          `,
-          [item.id_variante]
-        );
+        const tipoItem = item.tipo_item || "producto";
 
-        const stockActual = Number(varianteRows[0].stock_actual);
-        const nuevoStock = stockActual + Number(item.cantidad);
-
-        await connection.query(
-          `
-          UPDATE producto_variantes
-          SET stock_actual = ?
-          WHERE id_variante = ?
-          `,
-          [nuevoStock, item.id_variante]
-        );
-
-        await connection.query(
-          `
-          INSERT INTO movimientos_stock
-          (
-            id_variante,
-            tipo_movimiento,
-            cantidad,
-            motivo,
-            referencia_tipo,
-            referencia_id,
-            estado_visible
-          )
-          VALUES (?, 'devolucion', ?, ?, 'anulacion_venta', ?, 1)
-          `,
-          [
-            item.id_variante,
-            item.cantidad,
-            `Devolución de stock por anulación de venta #${id_venta}`,
-            id_venta
-          ]
-        );
+        if (tipoItem === "combo") {
+          await reponerStockCombo(connection, item.id_combo, item.cantidad, id_venta);
+        } else {
+          await reponerStockVariante(connection, item.id_variante, item.cantidad, id_venta);
+        }
       }
     }
 

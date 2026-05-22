@@ -7,6 +7,7 @@ async function findAllPromociones() {
       nombre_promocion,
       descripcion,
       tipo_promocion,
+      tipo_descuento,
       valor_descuento,
       fecha_inicio,
       fecha_fin,
@@ -27,6 +28,7 @@ async function findPromocionById(id_promocion) {
       nombre_promocion,
       descripcion,
       tipo_promocion,
+      tipo_descuento,
       valor_descuento,
       fecha_inicio,
       fecha_fin,
@@ -39,19 +41,25 @@ async function findPromocionById(id_promocion) {
 
   const detalleSql = `
     SELECT
-      pd.id_promocion_detalle,
-      pd.id_promocion,
-      pd.id_producto,
+      pp.id_promocion_producto,
+      pp.id_promocion,
+      pp.id_producto,
       p.nombre_producto,
-      pd.id_variante,
+      pp.id_variante,
       pv.sku,
-      pd.cantidad_minima,
-      pd.estado_visible
-    FROM promocion_detalle pd
-    LEFT JOIN productos p ON pd.id_producto = p.id_producto
-    LEFT JOIN producto_variantes pv ON pd.id_variante = pv.id_variante
-    WHERE pd.id_promocion = ?
-    AND pd.estado_visible = 1
+      pv.stock_actual,
+      p.precio_venta,
+      c.nombre_color,
+      t.nombre_talla,
+      pp.cantidad_minima,
+      pp.estado_visible
+    FROM promocion_productos pp
+    LEFT JOIN productos p ON pp.id_producto = p.id_producto
+    LEFT JOIN producto_variantes pv ON pp.id_variante = pv.id_variante
+    LEFT JOIN colores c ON pv.id_color = c.id_color
+    LEFT JOIN tallas t ON pv.id_talla = t.id_talla
+    WHERE pp.id_promocion = ?
+    AND pp.estado_visible = 1
   `;
 
   const [promocionRows] = await pool.query(promocionSql, [id_promocion]);
@@ -81,22 +89,24 @@ async function createPromocion(data) {
         nombre_promocion,
         descripcion,
         tipo_promocion,
+        tipo_descuento,
         valor_descuento,
         fecha_inicio,
         fecha_fin,
         estado_promocion,
         estado_visible
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
       `,
       [
         data.nombre_promocion,
         data.descripcion,
         data.tipo_promocion,
+        data.tipo_descuento,
         data.valor_descuento,
         data.fecha_inicio,
         data.fecha_fin,
-        data.estado_promocion || "activo"
+        data.estado_promocion || "activa"
       ]
     );
 
@@ -105,7 +115,7 @@ async function createPromocion(data) {
     for (const item of data.detalles) {
       await connection.query(
         `
-        INSERT INTO promocion_detalle
+        INSERT INTO promocion_productos
         (
           id_promocion,
           id_producto,
@@ -147,6 +157,7 @@ async function updatePromocion(id_promocion, data) {
         nombre_promocion = ?,
         descripcion = ?,
         tipo_promocion = ?,
+        tipo_descuento = ?,
         valor_descuento = ?,
         fecha_inicio = ?,
         fecha_fin = ?,
@@ -158,6 +169,7 @@ async function updatePromocion(id_promocion, data) {
         data.nombre_promocion,
         data.descripcion,
         data.tipo_promocion,
+        data.tipo_descuento,
         data.valor_descuento,
         data.fecha_inicio,
         data.fecha_fin,
@@ -168,7 +180,7 @@ async function updatePromocion(id_promocion, data) {
 
     await connection.query(
       `
-      UPDATE promocion_detalle
+      UPDATE promocion_productos
       SET estado_visible = 0
       WHERE id_promocion = ?
       `,
@@ -178,7 +190,7 @@ async function updatePromocion(id_promocion, data) {
     for (const item of data.detalles) {
       await connection.query(
         `
-        INSERT INTO promocion_detalle
+        INSERT INTO promocion_productos
         (
           id_promocion,
           id_producto,

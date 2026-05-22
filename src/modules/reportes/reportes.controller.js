@@ -16,7 +16,7 @@ async function reporteVentas(req, res, next) {
 
 async function reporteInventario(req, res, next) {
   try {
-    const data = await reportesService.reporteInventario();
+    const data = await reportesService.reporteInventario(req.query);
 
     res.json({
       ok: true,
@@ -56,9 +56,24 @@ async function reporteProductosMasVendidos(req, res, next) {
   }
 }
 
+async function resumenGerencial(req, res, next) {
+  try {
+    const data = await reportesService.resumenGerencial(req.query);
+
+    res.json({
+      ok: true,
+      message: "Resumen gerencial obtenido correctamente",
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   reporteVentas,
   reporteInventario,
   reporteCompras,
-  reporteProductosMasVendidos
+  reporteProductosMasVendidos,
+  resumenGerencial
 };
