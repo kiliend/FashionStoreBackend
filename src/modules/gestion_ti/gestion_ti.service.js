@@ -271,6 +271,15 @@ const actualizarChecklistCambio = async (idChecklist, data, usuarioAuth) => {
   return { message: "Checklist actualizado correctamente." };
 };
 
+
+const listarHistoricoGestionTi = async (filtros) => {
+  return repository.listarHistoricoGestionTi(filtros);
+};
+
+const obtenerResumenHistoricoGestionTi = async (filtros) => {
+  return repository.obtenerResumenHistoricoGestionTi(filtros);
+};
+
 const obtenerMetricas = async () => {
   return repository.obtenerMetricas();
 };
@@ -302,6 +311,8 @@ module.exports = {
   agregarComentarioCambio,
   crearChecklistCambio,
   actualizarChecklistCambio,
+  listarHistoricoGestionTi,
+  obtenerResumenHistoricoGestionTi,
   obtenerMetricas,
   listarUsuariosAsignables
 };
