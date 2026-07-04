@@ -282,7 +282,42 @@ const obtenerIncidenciaPorId = async (id) => {
 
 
 const listarIncidenciasTablero = async () => {
-  return listarIncidencias({});
+  const [rows] = await pool.query(
+    `SELECT 
+      gi.*,
+      ur.usuario AS usuario_reporta,
+      ua.usuario AS usuario_asignado,
+      uc.usuario AS usuario_cierre,
+      CASE 
+        WHEN gi.fecha_limite_sla IS NULL THEN 'sin_sla'
+        WHEN gi.fecha_cierre IS NOT NULL AND gi.fecha_cierre <= gi.fecha_limite_sla THEN 'cumplido'
+        WHEN gi.fecha_resolucion IS NOT NULL AND gi.fecha_resolucion <= gi.fecha_limite_sla THEN 'cumplido'
+        WHEN gi.fecha_cierre IS NULL AND gi.fecha_resolucion IS NULL AND gi.fecha_limite_sla < NOW() THEN 'vencido'
+        WHEN COALESCE(gi.fecha_cierre, gi.fecha_resolucion) > gi.fecha_limite_sla THEN 'vencido'
+        ELSE 'en_plazo'
+      END AS sla_estado,
+      CASE 
+        WHEN gi.fecha_cierre IS NULL AND gi.fecha_resolucion IS NULL AND gi.fecha_limite_sla < NOW() THEN 1
+        ELSE 0
+      END AS sla_vencido
+    FROM gestion_incidencias gi
+    LEFT JOIN usuarios ur ON ur.id_usuario = gi.id_usuario_reporta
+    LEFT JOIN usuarios ua ON ua.id_usuario = gi.id_usuario_asignado
+    LEFT JOIN usuarios uc ON uc.id_usuario = gi.id_usuario_cierre
+    WHERE gi.estado_visible = 1
+      AND (
+        gi.estado IN ('registrada', 'en_revision', 'en_atencion')
+        OR (
+          gi.estado IN ('resuelta', 'cerrada', 'rechazada')
+          AND COALESCE(gi.fecha_cierre, gi.fecha_resolucion, gi.fecha_registro) >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        )
+      )
+    ORDER BY 
+      FIELD(gi.estado, 'registrada', 'en_revision', 'en_atencion', 'resuelta', 'cerrada', 'rechazada'),
+      gi.fecha_registro DESC`
+  );
+
+  return rows;
 };
 
 const obtenerIncidenciaDetalle = async (id) => {
@@ -376,9 +411,9 @@ const moverIncidencia = async (id, data, usuarioAuth) => {
       params.push(data.solucion_aplicada || data.observacion || null);
     }
 
-    if (data.estado === "cerrada") {
-      campos.push("fecha_cierre = NOW()");
-      campos.push("id_usuario_cierre = ?");
+    if (data.estado === "cerrada" || data.estado === "rechazada") {
+      campos.push("fecha_cierre = COALESCE(fecha_cierre, NOW())");
+      campos.push("id_usuario_cierre = COALESCE(id_usuario_cierre, ?)");
       params.push(idUsuario);
     }
 
@@ -722,7 +757,41 @@ const listarCambios = async (filtros = {}) => {
 };
 
 const listarCambiosTablero = async () => {
-  return listarCambios({});
+  const [rows] = await pool.query(
+    `SELECT 
+      gc.*,
+      us.usuario AS usuario_solicita,
+      ur.usuario AS usuario_responsable,
+      ua.usuario AS usuario_aprobador,
+      CASE 
+        WHEN gc.fecha_limite_sla IS NULL THEN 'sin_sla'
+        WHEN gc.fecha_cierre IS NOT NULL AND gc.fecha_cierre <= gc.fecha_limite_sla THEN 'cumplido'
+        WHEN gc.fecha_cierre IS NULL AND gc.fecha_limite_sla < NOW() THEN 'vencido'
+        WHEN gc.fecha_cierre IS NOT NULL AND gc.fecha_cierre > gc.fecha_limite_sla THEN 'vencido'
+        ELSE 'en_plazo'
+      END AS sla_estado,
+      CASE 
+        WHEN gc.fecha_cierre IS NULL AND gc.fecha_limite_sla < NOW() THEN 1
+        ELSE 0
+      END AS sla_vencido
+    FROM gestion_cambios gc
+    LEFT JOIN usuarios us ON us.id_usuario = gc.id_usuario_solicita
+    LEFT JOIN usuarios ur ON ur.id_usuario = gc.id_usuario_responsable
+    LEFT JOIN usuarios ua ON ua.id_usuario = gc.id_usuario_aprobador
+    WHERE gc.estado_visible = 1
+      AND (
+        gc.estado IN ('solicitado', 'evaluacion', 'aprobado', 'implementacion', 'pruebas', 'documentado')
+        OR (
+          gc.estado IN ('cerrado', 'rechazado', 'postergado')
+          AND COALESCE(gc.fecha_cierre, gc.fecha_registro) >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        )
+      )
+    ORDER BY 
+      FIELD(gc.estado, 'solicitado', 'evaluacion', 'aprobado', 'implementacion', 'pruebas', 'documentado', 'cerrado', 'rechazado', 'postergado'),
+      gc.fecha_registro DESC`
+  );
+
+  return rows;
 };
 
 const obtenerCambioPorId = async (id) => {
@@ -834,8 +903,11 @@ const moverCambio = async (id, data, usuarioAuth) => {
       params.push(data.resultado_pruebas || null);
     }
 
+    if (["cerrado", "rechazado", "postergado"].includes(data.estado)) {
+      campos.push("fecha_cierre = COALESCE(fecha_cierre, NOW())");
+    }
+
     if (data.estado === "cerrado") {
-      campos.push("fecha_cierre = NOW()");
       campos.push("resultado_pruebas = COALESCE(?, resultado_pruebas)");
       campos.push("commit_github = COALESCE(?, commit_github)");
       campos.push("evidencia_url = COALESCE(?, evidencia_url)");
@@ -1059,6 +1131,245 @@ const actualizarChecklistCambio = async (idChecklist, data, usuarioAuth) => {
   }
 };
 
+
+const obtenerBaseHistoricoSql = () => {
+  return `
+    SELECT
+      'cambio' AS tipo_registro,
+      gc.id_cambio AS id_ticket,
+      gc.codigo_cambio AS codigo,
+      gc.titulo,
+      gc.descripcion,
+      gc.modulo_afectado,
+      gc.tipo_cambio AS tipo,
+      gc.prioridad,
+      gc.estado,
+      gc.id_usuario_solicita AS id_usuario_creador,
+      us.usuario AS usuario_creador,
+      gc.id_usuario_responsable,
+      ur.usuario AS usuario_responsable,
+      gc.fecha_registro,
+      gc.fecha_limite_sla,
+      gc.fecha_cierre,
+      gc.observacion,
+      CASE 
+        WHEN gc.fecha_limite_sla IS NULL THEN 'sin_sla'
+        WHEN gc.fecha_cierre IS NOT NULL AND gc.fecha_cierre <= gc.fecha_limite_sla THEN 'cumplido'
+        WHEN gc.fecha_cierre IS NULL AND gc.fecha_limite_sla < NOW() THEN 'vencido'
+        WHEN gc.fecha_cierre IS NOT NULL AND gc.fecha_cierre > gc.fecha_limite_sla THEN 'vencido'
+        ELSE 'en_plazo'
+      END AS sla_estado,
+      (
+        SELECT COUNT(*)
+        FROM gestion_cambios_historial h
+        WHERE h.id_cambio = gc.id_cambio
+          AND h.estado_visible = 1
+      ) AS total_movimientos,
+      (
+        SELECT MAX(h.fecha_registro)
+        FROM gestion_cambios_historial h
+        WHERE h.id_cambio = gc.id_cambio
+          AND h.estado_visible = 1
+      ) AS fecha_ultimo_movimiento
+    FROM gestion_cambios gc
+    LEFT JOIN usuarios us ON us.id_usuario = gc.id_usuario_solicita
+    LEFT JOIN usuarios ur ON ur.id_usuario = gc.id_usuario_responsable
+    WHERE gc.estado_visible = 1
+
+    UNION ALL
+
+    SELECT
+      'incidencia' AS tipo_registro,
+      gi.id_incidencia_ti AS id_ticket,
+      gi.codigo_incidencia AS codigo,
+      gi.titulo,
+      gi.descripcion,
+      gi.modulo_afectado,
+      gi.tipo_incidencia AS tipo,
+      gi.prioridad,
+      gi.estado,
+      gi.id_usuario_reporta AS id_usuario_creador,
+      urp.usuario AS usuario_creador,
+      gi.id_usuario_asignado AS id_usuario_responsable,
+      uas.usuario AS usuario_responsable,
+      gi.fecha_registro,
+      gi.fecha_limite_sla,
+      COALESCE(gi.fecha_cierre, gi.fecha_resolucion) AS fecha_cierre,
+      gi.observacion,
+      CASE 
+        WHEN gi.fecha_limite_sla IS NULL THEN 'sin_sla'
+        WHEN gi.fecha_cierre IS NOT NULL AND gi.fecha_cierre <= gi.fecha_limite_sla THEN 'cumplido'
+        WHEN gi.fecha_resolucion IS NOT NULL AND gi.fecha_resolucion <= gi.fecha_limite_sla THEN 'cumplido'
+        WHEN gi.fecha_cierre IS NULL AND gi.fecha_resolucion IS NULL AND gi.fecha_limite_sla < NOW() THEN 'vencido'
+        WHEN COALESCE(gi.fecha_cierre, gi.fecha_resolucion) > gi.fecha_limite_sla THEN 'vencido'
+        ELSE 'en_plazo'
+      END AS sla_estado,
+      (
+        SELECT COUNT(*)
+        FROM gestion_incidencias_historial h
+        WHERE h.id_incidencia_ti = gi.id_incidencia_ti
+          AND h.estado_visible = 1
+      ) AS total_movimientos,
+      (
+        SELECT MAX(h.fecha_registro)
+        FROM gestion_incidencias_historial h
+        WHERE h.id_incidencia_ti = gi.id_incidencia_ti
+          AND h.estado_visible = 1
+      ) AS fecha_ultimo_movimiento
+    FROM gestion_incidencias gi
+    LEFT JOIN usuarios urp ON urp.id_usuario = gi.id_usuario_reporta
+    LEFT JOIN usuarios uas ON uas.id_usuario = gi.id_usuario_asignado
+    WHERE gi.estado_visible = 1
+  `;
+};
+
+const construirFiltrosHistorico = (filtros = {}) => {
+  const where = ["1 = 1"];
+  const params = [];
+
+  if (filtros.tipo_registro && filtros.tipo_registro !== "todos") {
+    where.push("hist.tipo_registro = ?");
+    params.push(filtros.tipo_registro);
+  }
+
+  if (filtros.estado) {
+    where.push("hist.estado = ?");
+    params.push(filtros.estado);
+  }
+
+  if (filtros.prioridad) {
+    where.push("hist.prioridad = ?");
+    params.push(filtros.prioridad);
+  }
+
+  if (filtros.modulo) {
+    where.push("hist.modulo_afectado LIKE ?");
+    params.push(`%${filtros.modulo}%`);
+  }
+
+  if (filtros.id_usuario_responsable) {
+    where.push("hist.id_usuario_responsable = ?");
+    params.push(filtros.id_usuario_responsable);
+  }
+
+  if (filtros.id_usuario_creador) {
+    where.push("hist.id_usuario_creador = ?");
+    params.push(filtros.id_usuario_creador);
+  }
+
+  if (filtros.sla_estado) {
+    where.push("hist.sla_estado = ?");
+    params.push(filtros.sla_estado);
+  }
+
+  if (filtros.tipo) {
+    where.push("hist.tipo = ?");
+    params.push(filtros.tipo);
+  }
+
+  if (filtros.busqueda) {
+    where.push("(hist.codigo LIKE ? OR hist.titulo LIKE ? OR hist.descripcion LIKE ?)");
+    const busqueda = `%${filtros.busqueda}%`;
+    params.push(busqueda, busqueda, busqueda);
+  }
+
+  if (filtros.desde) {
+    where.push("hist.fecha_registro >= ?");
+    params.push(filtros.desde);
+  }
+
+  if (filtros.hasta) {
+    where.push("hist.fecha_registro < DATE_ADD(?, INTERVAL 1 DAY)");
+    params.push(filtros.hasta);
+  }
+
+  return {
+    whereSql: `WHERE ${where.join(" AND ")}`,
+    params
+  };
+};
+
+const listarHistoricoGestionTi = async (filtros = {}) => {
+  const page = Math.max(Number(filtros.page || 1), 1);
+  const limit = Math.min(Math.max(Number(filtros.limit || 20), 5), 100);
+  const offset = (page - 1) * limit;
+
+  const baseSql = obtenerBaseHistoricoSql();
+  const { whereSql, params } = construirFiltrosHistorico(filtros);
+
+  const [[countRow]] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM (${baseSql}) hist
+     ${whereSql}`,
+    params
+  );
+
+  const [rows] = await pool.query(
+    `SELECT *
+     FROM (${baseSql}) hist
+     ${whereSql}
+     ORDER BY COALESCE(hist.fecha_ultimo_movimiento, hist.fecha_registro) DESC,
+              hist.fecha_registro DESC
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+
+  const total = Number(countRow?.total || 0);
+
+  return {
+    items: rows,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(Math.ceil(total / limit), 1)
+    }
+  };
+};
+
+const obtenerResumenHistoricoGestionTi = async (filtros = {}) => {
+  const baseSql = obtenerBaseHistoricoSql();
+  const { whereSql, params } = construirFiltrosHistorico(filtros);
+
+  const [rows] = await pool.query(
+    `SELECT
+       hist.tipo_registro,
+       COUNT(*) AS total,
+       SUM(CASE WHEN hist.sla_estado = 'vencido' THEN 1 ELSE 0 END) AS vencidos,
+       SUM(CASE WHEN hist.sla_estado = 'cumplido' THEN 1 ELSE 0 END) AS cumplidos,
+       SUM(CASE WHEN hist.estado IN ('cerrado', 'cerrada', 'rechazado', 'rechazada', 'postergado', 'resuelta') THEN 1 ELSE 0 END) AS finalizados,
+       SUM(CASE WHEN hist.estado NOT IN ('cerrado', 'cerrada', 'rechazado', 'rechazada', 'postergado', 'resuelta') THEN 1 ELSE 0 END) AS activos
+     FROM (${baseSql}) hist
+     ${whereSql}
+     GROUP BY hist.tipo_registro`,
+    params
+  );
+
+  const resumen = {
+    total: 0,
+    cambios: 0,
+    incidencias: 0,
+    vencidos: 0,
+    cumplidos: 0,
+    finalizados: 0,
+    activos: 0
+  };
+
+  for (const row of rows) {
+    const total = Number(row.total || 0);
+    resumen.total += total;
+    resumen.vencidos += Number(row.vencidos || 0);
+    resumen.cumplidos += Number(row.cumplidos || 0);
+    resumen.finalizados += Number(row.finalizados || 0);
+    resumen.activos += Number(row.activos || 0);
+
+    if (row.tipo_registro === "cambio") resumen.cambios = total;
+    if (row.tipo_registro === "incidencia") resumen.incidencias = total;
+  }
+
+  return resumen;
+};
+
 const obtenerMetricas = async () => {
   const [[incidencias]] = await pool.query(
     `SELECT
@@ -1135,6 +1446,8 @@ module.exports = {
   agregarComentarioCambio,
   crearChecklistCambio,
   actualizarChecklistCambio,
+  listarHistoricoGestionTi,
+  obtenerResumenHistoricoGestionTi,
   obtenerMetricas,
   listarUsuariosAsignables
 };

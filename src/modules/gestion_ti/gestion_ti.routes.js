@@ -34,6 +34,18 @@ router.get(
 );
 
 router.get(
+  "/historico/resumen",
+  authorizeRoles(...rolesGestionTi),
+  controller.obtenerResumenHistoricoGestionTi
+);
+
+router.get(
+  "/historico",
+  authorizeRoles(...rolesGestionTi),
+  controller.listarHistoricoGestionTi
+);
+
+router.get(
   "/incidencias/tablero",
   authorizeRoles(...rolesGestionTi),
   controller.listarIncidenciasTablero

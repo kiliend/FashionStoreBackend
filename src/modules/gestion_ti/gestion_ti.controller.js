@@ -254,6 +254,25 @@ const actualizarChecklistCambio = async (req, res, next) => {
   }
 };
 
+
+const listarHistoricoGestionTi = async (req, res, next) => {
+  try {
+    const data = await service.listarHistoricoGestionTi(req.query);
+    res.json({ ok: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const obtenerResumenHistoricoGestionTi = async (req, res, next) => {
+  try {
+    const data = await service.obtenerResumenHistoricoGestionTi(req.query);
+    res.json({ ok: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const obtenerMetricas = async (req, res, next) => {
   try {
     const data = await service.obtenerMetricas();
@@ -295,6 +314,8 @@ module.exports = {
   agregarComentarioCambio,
   crearChecklistCambio,
   actualizarChecklistCambio,
+  listarHistoricoGestionTi,
+  obtenerResumenHistoricoGestionTi,
   obtenerMetricas,
   listarUsuariosAsignables
 };
