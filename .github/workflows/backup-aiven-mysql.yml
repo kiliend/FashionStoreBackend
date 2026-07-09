@@ -9,7 +9,28 @@ jobs:
   backup:
     runs-on: ubuntu-latest
 
+    env:
+      AIVEN_DB_HOST: ${{ secrets.AIVEN_DB_HOST }}
+      AIVEN_DB_PORT: ${{ secrets.AIVEN_DB_PORT }}
+      AIVEN_DB_USER: ${{ secrets.AIVEN_DB_USER }}
+      AIVEN_DB_PASSWORD: ${{ secrets.AIVEN_DB_PASSWORD }}
+      AIVEN_DB_NAME: ${{ secrets.AIVEN_DB_NAME }}
+
     steps:
+      - name: Validar secretos requeridos
+        run: |
+          if [ -z "$AIVEN_DB_HOST" ]; then echo "Falta AIVEN_DB_HOST"; exit 1; fi
+          if [ -z "$AIVEN_DB_PORT" ]; then echo "Falta AIVEN_DB_PORT"; exit 1; fi
+          if [ -z "$AIVEN_DB_USER" ]; then echo "Falta AIVEN_DB_USER"; exit 1; fi
+          if [ -z "$AIVEN_DB_PASSWORD" ]; then echo "Falta AIVEN_DB_PASSWORD"; exit 1; fi
+          if [ -z "$AIVEN_DB_NAME" ]; then echo "Falta AIVEN_DB_NAME"; exit 1; fi
+
+          echo "Secretos cargados correctamente."
+          echo "Host: $AIVEN_DB_HOST"
+          echo "Port: $AIVEN_DB_PORT"
+          echo "Database: $AIVEN_DB_NAME"
+          echo "User: $AIVEN_DB_USER"
+
       - name: Instalar cliente MySQL
         run: |
           sudo apt-get update
@@ -19,17 +40,20 @@ jobs:
         run: |
           mkdir -p backups
           FECHA=$(date +"%Y-%m-%d_%H-%M")
+
           mysqldump \
-            --host="${{ secrets.AIVEN_DB_HOST }}" \
-            --port="${{ secrets.AIVEN_DB_PORT }}" \
-            --user="${{ secrets.AIVEN_DB_USER }}" \
-            --password="${{ secrets.AIVEN_DB_PASSWORD }}" \
+            --host="$AIVEN_DB_HOST" \
+            --port="$AIVEN_DB_PORT" \
+            --user="$AIVEN_DB_USER" \
+            --password="$AIVEN_DB_PASSWORD" \
             --ssl-mode=REQUIRED \
             --single-transaction \
             --routines \
             --triggers \
             --events \
-            "${{ secrets.AIVEN_DB_NAME }}" | gzip > backups/fashionstore_backup_$FECHA.sql.gz
+            "$AIVEN_DB_NAME" | gzip > backups/fashionstore_backup_$FECHA.sql.gz
+
+          ls -lh backups
 
       - name: Subir backup como artefacto
         uses: actions/upload-artifact@v4
