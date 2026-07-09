@@ -1,0 +1,39 @@
+name: Backup Aiven MySQL
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Instalar cliente MySQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client gzip
+
+      - name: Crear backup de Aiven MySQL
+        run: |
+          mkdir -p backups
+          FECHA=$(date +"%Y-%m-%d_%H-%M")
+          mysqldump \
+            --host="${{ secrets.AIVEN_DB_HOST }}" \
+            --port="${{ secrets.AIVEN_DB_PORT }}" \
+            --user="${{ secrets.AIVEN_DB_USER }}" \
+            --password="${{ secrets.AIVEN_DB_PASSWORD }}" \
+            --ssl-mode=REQUIRED \
+            --single-transaction \
+            --routines \
+            --triggers \
+            --events \
+            "${{ secrets.AIVEN_DB_NAME }}" | gzip > backups/fashionstore_backup_$FECHA.sql.gz
+
+      - name: Subir backup como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: fashionstore-aiven-mysql-backup
+          path: backups/*.sql.gz
+          retention-days: 7
