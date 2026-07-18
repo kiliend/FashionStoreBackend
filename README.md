@@ -868,3 +868,8 @@ Proyecto desarrollado como backend modular para el sistema FashionStore.
 Desarrollado por: Luis Condori
 Tecnología: Node.js + Express + MySQL
 ```
+## 21. Base de conocimiento
+
+Proyecto desarrollado como backend modular para el sistema FashionStore.
+
+https://docs.google.com/document/d/1EwlTp0CSPrttgS0uFlQAFlOpmbk6yzX3/edit?usp=drive_link&ouid=106341279883709734201&rtpof=true&sd=true
