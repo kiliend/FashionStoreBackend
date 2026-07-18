@@ -47,6 +47,7 @@ jobs:
             --user="$AIVEN_DB_USER" \
             --password="$AIVEN_DB_PASSWORD" \
             --ssl-mode=REQUIRED \
+            --set-gtid-purged=OFF \
             --single-transaction \
             --routines \
             --triggers \
